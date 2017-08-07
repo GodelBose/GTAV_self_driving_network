@@ -40,6 +40,14 @@ class GTA_driver:
 					if iteration % self.save_per_iteration == 0:
 						print('SAVING MODEL!')
 						np.save(self.save_model_name, self.model.get_weights())
+						plt.plot(self.model.predict(X))
+						plt.savefig("temp_imgs/predictions %d"%0)
+						plt.close()
+						print(y[0].shape)
+						plt.plot(y[0][:,0])
+						plt.plot(y[0][:,1])
+						plt.savefig("temp_imgs/labels %d"%0)
+						plt.close()
 					iteration += 1
 				except Exception as e:
 					print(str(e))
@@ -54,49 +62,73 @@ class GTA_driver:
 	def predict(self,X):
 		return self.model.predict(X)
 
+	def round(self,x):
+		if x <-1:
+			return -1
+		if x>1:
+			return 1
+		else:
+			return x
+
+
 	def make_input(self, ax_predictions, speed_predictions, controller):
 		ax_value = {0:'AxisLx', 1:'AxisLy', 2:'AxisRx', 3:'AxisRy', 4:'TriggerR', 5:'TriggerL'}
 		for j,i in enumerate(self.data_gen.axis_indices):
-			controller.set_value(ax_value[i], ax_predictions[j])
+			# make sure only forward or backward acceleration is applied
+			if i==5:
+				if self.round(ax_predictions[j]) > self.round(ax_predictions[j-1]):
+					controller.set_value(ax_value[i], self.round(ax_predictions[j]))
+					controller.set_value(ax_value[4], -1)
+
+			else:
+				controller.set_value(ax_value[i], self.round(ax_predictions[j]))
 
 
 	def live_driving(self):
 		controller = pyxinput.vController()
 		paused = False
+		old_screens = []
 		while(True):
+
 			if not paused:
 				map_screen = grab_screen(region=self.map_region)
 				map_screen = cv2.cvtColor(map_screen, cv2.COLOR_BGR2RGB)
 				cam_screen = grab_screen(region=self.cam_region)
 				cam_screen = cv2.cvtColor(cam_screen, cv2.COLOR_BGR2RGB)
-				cam_screen = cv2.resize(cam_screen, self.cam_resolution[:2])
+				cam_screen = cv2.resize(cam_screen, (360,240))
 				if self.data_gen.view_resize:
 					cam_screen = cv2.resize(cam_screen, self.data_gen.view_resize)
 				speed_screen = grab_screen(region=self.speed_region)
 				speed_screen = cv2.cvtColor(speed_screen, cv2.COLOR_BGR2RGB)
 				speed_screen = cv2.cvtColor(speed_screen,cv2.COLOR_RGB2GRAY)[:,:,None]
-				X = [x for name,x in zip(['map_view', 'cam_view', 'speed_view'],[map_screen[None,:,:,:], cam_screen[None,:,:,:], speed_screen[None,:,:,:]]) if self.inputs[name]]
+				if self.data_gen.seq_len== 1:
+					X = [x for name,x in zip(['map_view', 'cam_view', 'speed_view'],[map_screen[None,:,:,:], cam_screen[None,:,:,:], speed_screen[None,:,:,:]]) if self.inputs[name]]
+				else:
+					if old_screens == []:
+						old_screens = [cam_screen for i in range(self.data_gen.seq_len)]
+
+					old_screens.append(cam_screen)
+					old_screens = old_screens[-self.data_gen.seq_len:]
+					X = np.array(old_screens)[None,:,:,:,:]
 				if self.data_gen.return_buttons:
 					ax_predictions, button_predictions = self.predict(X)
 				else:
 					ax_predictions = self.predict(X)
 					button_predictions = []
-				print(ax_predictions, X[0].shape, X[1].shape)
+				print(ax_predictions)#, X[0].shape, X[1].shape)
 				self.make_input(ax_predictions[0], button_predictions, controller)
 				self.clock.tick(self.frame_rate)
 				keys = key_check()
-
 				# p pauses game and can get annoying.
 				if 'T' in keys:
+
 					if paused:
+						print("unpausing")
 						paused = False
 						time.sleep(1)
 					else:
-						c = 0
+						print("pausing")
 						paused = True
-						ReleaseKey(A)
-						ReleaseKey(W)
-						ReleaseKey(D)
 						time.sleep(1)
 				if 'Q' in keys:
 					break
