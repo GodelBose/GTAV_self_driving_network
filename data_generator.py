@@ -20,13 +20,28 @@ class Data_generator:
 		self.seq_len = seq_len
 		self.use_sampling = use_sampling
 
+	def yield_data_deepgta(self):
+		indices = np.random.randint(0,self.total_files,self.files_per_batch)
+		X = []
+		Y = []
+		for i in indices:
+			file_name = self.files_directory+'/'+'training_data-{}.npy'.format(i) if self.files_directory else 'training_data-{}.npy'.format(i)
+			train_data = np.load(file_name)
+			for j in range(train_data[0]):
+				temp_inputs = []
+				temp_labels = []
+
+				frame = train_data[3][j]
+				temp_inputs.append(frame)
+
+
 	def yield_data(self):
 		indices = np.random.randint(0,self.total_files,self.files_per_batch)
 		X = []
 		Y = []
 		num_inputs = self.map_view + self.cam_view + self.speed_view
 		num_outputs = self.return_axis + self.return_buttons
-		random_radius = np.random.uniform(0.02,0.1)
+		random_radius = np.random.uniform(0.04,0.125)
 		normalizer = np.pi * random_radius**2
 		for i in indices:
 			file_name = self.files_directory+'/'+'training_data-{}.npy'.format(i) if self.files_directory else 'training_data-{}.npy'.format(i)

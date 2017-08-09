@@ -4,9 +4,10 @@ from keras.layers.convolutional import Convolution2D, MaxPooling2D, Conv3D
 from keras.layers.pooling import MaxPooling3D
 from keras.losses import categorical_crossentropy
 from keras.layers.normalization import BatchNormalization
-from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.core import Dense, Dropout, Activation, Flatten, Lambda
 from keras import backend
 from keras.layers.merge import Concatenate
+from keras import backend as K
 import numpy as np
 import tensorflow as tf
 from keras.layers.recurrent import GRU
@@ -159,19 +160,19 @@ def get_vis_comb(map_shape, cam_shape, speed_shape):
     b = Input(shape=cam_shape)
     c = Input(shape=speed_shape)
 
-    c1 = Convolution2D(64, 5, strides=(1, 1), padding="same", activation ='relu')(b)
+    c1 = Convolution2D(34, 5, strides=(1, 1), padding="same", activation ='relu')(b)
     m1 = MaxPooling2D(pool_size=(3, 3))(c1)
     n1 = BatchNormalization()(m1)
-    c2 = Convolution2D(96, 3, strides=(1, 1), padding="same", activation ='relu')(n1)
+    c2 = Convolution2D(64, 3, strides=(1, 1), padding="same", activation ='relu')(n1)
     m2 = MaxPooling2D(pool_size=(3, 3))(c2)
     n2 = BatchNormalization()(m2)
-    c3 = Convolution2D(128, 3, strides=(1, 1), padding="same", activation ='relu')(n2)
+    c3 = Convolution2D(96, 3, strides=(1, 1), padding="same", activation ='relu')(n2)
     m3 = MaxPooling2D(pool_size=(2, 2))(c3)
     n3 = BatchNormalization()(m3)
-    c4 = Convolution2D(256, 3, padding="same", activation ='relu')(n3)
+    c4 = Convolution2D(128, 3, padding="same", activation ='relu')(n3)
     m4 = MaxPooling2D(pool_size=(2,2))(c4)
     n4 = BatchNormalization()(m4)
-    c5 = Convolution2D(256, 3, padding="same", activation ='relu')(n4)
+    c5 = Convolution2D(158, 3, padding="same", activation ='relu')(n4)
     m5 = MaxPooling2D(pool_size=(2, 2))(c5)
     n5 = BatchNormalization()(m5)
     flatten1 = Flatten()(n5)
@@ -208,36 +209,44 @@ def two_input_model(cam_shape, speed_shape):
     b = Input(shape=cam_shape)
     c = Input(shape=speed_shape)
 
-    c1 = Convolution2D(64, 5, strides=(2, 2), padding="same", activation ='elu')(b)
-    c1 = BatchNormalization()(c1)
-    c1 = Convolution2D(96, 3, strides=(1, 1), padding="same", activation ='elu')(c1)
-    c1 = MaxPooling2D(pool_size=(3, 3))(c1)
-    c1 = BatchNormalization()(c1)
-    c3 = Convolution2D(128, 3, strides=(1, 1), padding="same", activation ='elu')(c1)
+    c3 = Convolution2D(64, 5, strides=(2, 2), padding="same", activation ='relu')(b)
+    c3 = BatchNormalization()(c3)
+    c3 = Convolution2D(96, 5, strides=(2, 2), padding="same", activation ='relu')(c3)
+    c3 = BatchNormalization()(c3)
+    c3 = Convolution2D(128, 5, strides=(2, 2), padding="same", activation ='relu')(c3)
 
     c3 = BatchNormalization()(c3)
-    c3 = Convolution2D(256, 3, padding="same", activation ='elu')(c3)
+    c3 = Convolution2D(158, 3, padding="same", activation ='relu')(c3)
     c3 = BatchNormalization()(c3)
 
-    c5 = Convolution2D(256, 3, padding="same", activation ='elu')(c3)
-    c5 = Concatenate(axis=3)([c3, c5])
-    c5 = MaxPooling2D(pool_size=(3, 3))(c5)
-    c5 = BatchNormalization()(c5)
-    flatten1 = Flatten()(c5)
+    c3 = Convolution2D(188, 3, padding="same", activation ='relu')(c3)
+    c3 = MaxPooling2D(pool_size=(2, 2))(c3)
+    c3 = BatchNormalization()(c3)
+    flatten1 = Flatten()(c3)
 
-    c1_3 = Convolution2D(96, 3, strides=(1, 1), padding="same", activation ='elu')(c)
-    c1_3 = MaxPooling2D(pool_size=(3, 3))(c1_3)
-    c1_3 = BatchNormalization()(c1_3)
-    c1_3 = Convolution2D(128, 3, strides=(1, 1), padding="same", activation ='elu')(c1_3)
-    c1_3 = MaxPooling2D(pool_size=(2, 2))(c1_3)
-    c1_3 = BatchNormalization()(c1_3)
-    flatten3 = Flatten()(c1_3)
+    c3 = Convolution2D(96, 3, strides=(1, 1), padding="same", activation ='relu')(c)
+    c3 = MaxPooling2D(pool_size=(3, 3))(c3)
+    c3 = BatchNormalization()(c3)
+    c3 = Convolution2D(128, 3, strides=(1, 1), padding="same", activation ='relu')(c3)
+    c3 = MaxPooling2D(pool_size=(2, 2))(c3)
+    c3 = BatchNormalization()(c3)
+    flatten3 = Flatten()(c3)
 
     merged_vector = Concatenate(axis=1)([flatten1, flatten3])
-    fc1 = Dense(1250, activation ='elu')(merged_vector)
+    merged_vector = Dropout(0.2)(merged_vector)
+    fc1 = Dense(2048, activation ='elu')(merged_vector)
+    fc1 = BatchNormalization()(fc1)
     fc1 = Dense(1250, activation ='elu')(fc1)
-    fc1 = Dense(2, activation='linear')(fc1)
-    adam = Adam(lr=0.001, clipvalue=4)
+    fc1 = BatchNormalization()(fc1)
+    fc1 = Dense(640, activation ='elu')(fc1)
+    fc1 = BatchNormalization()(fc1)
+    fc1 = Dense(300, activation ='elu')(fc1)
+    fc1 = BatchNormalization()(fc1)
+    fc1 = Dense(100, activation ='elu')(fc1)
+    fc1 = BatchNormalization()(fc1)#TODO Add lambda layer for value clipping
+    fc1 = Dense(4, activation='linear')(fc1)
+    fc1 = Lambda(lambda x: K.clip(x,-1,1))(fc1)
+    adam = Adam(lr=0.001, clipvalue=5)
 
     model = Model(input=[b,c], output=fc1)
     model.compile(optimizer=adam, loss='mean_squared_error', metrics=['mae'])

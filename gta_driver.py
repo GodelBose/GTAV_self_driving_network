@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pygame
 from getkeys import key_check
 from directkeys import PressKey,ReleaseKey, W, A, S, D
+from keras.models import Model
 
 class GTA_driver:
 
@@ -58,6 +59,7 @@ class GTA_driver:
 	def load_model(self):
 		if self.load_model_name:
 			self.model.set_weights(np.load(self.load_model_name))
+		x = self.model
 
 	def predict(self,X):
 		return self.model.predict(X)
@@ -70,16 +72,40 @@ class GTA_driver:
 		else:
 			return x
 
+	def visualize_filters(self, images):
+		self.load_model()
+		visualizer = Model(inputs=self.model.input, outputs=self.model.get_layer('conv2d_2').output)
+		visualizer.compile(optimizer='rmsprop', loss='mean_squared_error')
+		i = 0
+		screen = [x[0] for x in images]
+		speed = [x[2] for x in images]
+		for image, speed in zip(screen, speed):
+			if self.data_gen.view_resize:
+				image = cv2.resize(image, (self.data_gen.view_resize))
+			speed= speed[:,:,None]
+			filters = visualizer.predict([image[None,:,:,:], speed[None,:,:,:]])
+			f = np.random.randint(0,filters.shape[3]-4)
+			plt.imshow(filters[0][:,:,f:f+3])#np.save('temp_imgs/filter_{}'.format(i), filters)
+			plt.savefig('temp_imgs/filter_{}'.format(i))
+			plt.close()
+			plt.imshow(image)#np.save('temp_imgs/filter_{}'.format(i), filters)
+			plt.savefig('temp_imgs/filter_{}_image'.format(i))
+			plt.close()
+			i += 1
+
+
 
 	def make_input(self, ax_predictions, speed_predictions, controller):
 		ax_value = {0:'AxisLx', 1:'AxisLy', 2:'AxisRx', 3:'AxisRy', 4:'TriggerR', 5:'TriggerL'}
 		for j,i in enumerate(self.data_gen.axis_indices):
 			# make sure only forward or backward acceleration is applied
 			if i==5:
+				controller.set_value(ax_value[i], -1)
+				'''
 				if self.round(ax_predictions[j]) > self.round(ax_predictions[j-1]):
 					controller.set_value(ax_value[i], self.round(ax_predictions[j]))
 					controller.set_value(ax_value[4], -1)
-
+				'''
 			else:
 				controller.set_value(ax_value[i], self.round(ax_predictions[j]))
 

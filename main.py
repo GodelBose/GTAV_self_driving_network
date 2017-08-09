@@ -17,18 +17,18 @@ map_region = (10,500,160,615)
 speed_region = (730,320,760,350)
 seq_len = 1
 # eventual shapes that the model gets
-screen_shape = (120,180,3) #2d input
+screen_shape = (240,360,3) #2d input
 #screen_shape = (seq_len, 120,180,3) #3d input
 map_shape = (116,151,3)
 speed_shape = (31,31,1)
 
 epochs = 50
-load_model_name = experiment_path+'/speed_model_2.0.npy'
-save_model_name = experiment_path+'/speed_model_2.0'
+load_model_name = ''
+save_model_name = experiment_path+'/comb_model'
 batch_size = 32
 frame_rate = 18
-train = False
-driving = True
+train = True
+driving = False
 #model = get_vis_comb_2(map_shape, screen_shape, speed_shape)
 model = two_input_model(screen_shape, speed_shape)
 #model = get_model(screen_shape)
@@ -36,8 +36,8 @@ model = two_input_model(screen_shape, speed_shape)
 
 gen = Data_generator(15, 776, '', cam_view=True,
                      map_view=False, speed_view=True,
-                     view_resize=(180,120), return_axis=True,
-                     return_buttons=False, axis_indices =[4,5],
+                     view_resize=None, return_axis=True,
+                     return_buttons=False, axis_indices =[0,1,4,5],
                       seq_len=seq_len, use_sampling=True)
 
 driver = GTA_driver(gen, epochs, load_model_name,
